@@ -48,7 +48,7 @@ class classifier32(nn.Module):
         self.dr3 = nn.Dropout2d(0.2)
 
         self.apply(weights_init)
-        self.cuda()
+        # 不在这里强制放到特定 GPU，让上层用 net.to(device) 控制
 
     def forward(self, x, return_feature=False):
 

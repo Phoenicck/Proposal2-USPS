@@ -54,7 +54,7 @@ parser.add_argument('--beta1', type=float, default=None, help='beta1 for adam. d
 parser.add_argument('--manualSeed', type=int, default=None, help='manual seed')
 parser.add_argument('--check', type=bool, default=None, help='read checkpoint')
 parser.add_argument('--split', type=int, default=None, help='dataset split id')
-parser.add_argument('--device', type=int, default=0, help='gpu id')
+parser.add_argument('--device', type=int, default=3, help='gpu id')
 
 opt  = parser.parse_args()
 

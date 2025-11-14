@@ -32,8 +32,8 @@ import random
 parser = argparse.ArgumentParser()
 parser.add_argument('--dataset', default=None)
 parser.add_argument('--split_idx', type=int, default=None, help='dataset split id')
-parser.add_argument('--device', type=int, default=0, help='gpu id')
-parser.add_argument('--data_root', type=str, default="/root/data", help='dataset location')
+parser.add_argument('--device', type=int, default=3, help='gpu id')
+parser.add_argument('--data_root', type=str, default="../root/data", help='dataset location')
 
 args  = parser.parse_args()
 print(args)
@@ -357,10 +357,10 @@ def get_features(options, args):
         print("Loading from checkpoints {}".format(filename))
 
         if args.loss == "CPNLoss":
-            net.load_state_dict(torch.load(filename))
+            net.load_state_dict(torch.load(filename, map_location=args.device))
 
         if args.loss == "Softmax":
-            state_dict = net.strip_state_dict(torch.load(filename))
+            state_dict = net.strip_state_dict(torch.load(filename, map_location=args.device))
             net.load_state_dict(state_dict)
     else:
         print("no trained backbone!")
@@ -383,8 +383,8 @@ def get_features(options, args):
 
         for batch_idx, data in enumerate(test_known_loader):
             inputv, labelv, _ = data
-            inputv = inputv.cuda()
-            labelv = labelv.cuda()
+            inputv = inputv.to(args.device)
+            labelv = labelv.to(args.device)
 
             features, av_output = net(inputv, True)
 
@@ -407,8 +407,8 @@ def get_features(options, args):
 
         for batch_idx, data in enumerate(test_unknown_loader):
             inputv, labelv, _ = data
-            inputv = inputv.cuda()
-            labelv = labelv.cuda()
+            inputv = inputv.to(args.device)
+            labelv = labelv.to(args.device)
 
             features, av_output = net(inputv, True)
 
@@ -436,8 +436,8 @@ def get_features(options, args):
 
         for batch_idx, data in enumerate(train_known_loader):
             inputv, labelv, _ = data
-            inputv = inputv.cuda()
-            labelv = labelv.cuda()
+            inputv = inputv.to(args.device)
+            labelv = labelv.to(args.device)
 
             features, av_output = net(inputv, True)
 
@@ -457,8 +457,8 @@ def get_features(options, args):
 
         for batch_idx, data in enumerate(test_known_loader):
             inputv, labelv, _ = data
-            inputv = inputv.cuda()
-            labelv = labelv.cuda()
+            inputv = inputv.to(args.device)
+            labelv = labelv.to(args.device)
 
             features, av_output = net(inputv, True)
 
@@ -478,8 +478,8 @@ def get_features(options, args):
 
         for batch_idx, data in enumerate(train_unknown_loader):
             inputv, labelv, _ = data
-            inputv = inputv.cuda()
-            labelv = labelv.cuda()
+            inputv = inputv.to(args.device)
+            labelv = labelv.to(args.device)
 
             features, av_output = net(inputv, True)
 
@@ -499,8 +499,8 @@ def get_features(options, args):
 
         for batch_idx, data in enumerate(test_unknown_loader):
             inputv, labelv, _ = data
-            inputv = inputv.cuda()
-            labelv = labelv.cuda()
+            inputv = inputv.to(args.device)
+            labelv = labelv.to(args.device)
 
             features, av_output = net(inputv, True)
 
@@ -524,7 +524,7 @@ def get_features(options, args):
 
 
         ############## get semantic embeddings
-        fp = open("/root/data/glove.6B.50d.txt", "r")
+        fp = open("../root/data/glove.6B.50d.txt", "r")
         # fp = open("../data/glove.6B.300d.txt", "r")
         sample = fp.readlines()
         result_dict = {}
