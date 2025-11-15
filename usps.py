@@ -158,13 +158,22 @@ class USPS:
                     self.optimizer.step()
 
                 with torch.no_grad():
-                    acc_seen, auc_score_av, auc_score_softmax, oscr = self.val(iter)
+                    acc_seen, auc_score_av, auc_score_softmax, oscr, os_star, unk_acc, hos = self.val(iter)
 
-
-
-                print("epoch:%d, train_acc:%.4f, acc:%.4f, av_roc:%.4f, softmax_roc:%.4f, best_softmax_roc:%.4f,                     oscr:%.4f" % (
-                    epoch, train_correct.avg, acc_seen, auc_score_av, auc_score_softmax, self.best_roc, oscr))
-
+                 # 更新并记录最优指标
+                if auc_score_softmax > self.best_roc:
+                     self.best_roc = auc_score_softmax
+                     # 可选：保存当前最佳模型参数
+                     torch.save(self.model.state_dict(), './checkpoints/usps_best_softmax.pth')
+ 
+                if oscr > self.best_oscr:
+                     self.best_oscr = oscr
+ 
+                # print("epoch:%d, train_acc:%.4f, acc:%.4f, av_roc:%.4f, softmax_roc:%.4f, best_softmax_roc:%.4f,                     oscr:%.4f" % (
+                #     epoch, train_correct.avg, acc_seen, auc_score_av, auc_score_softmax, self.best_roc, oscr))
+                print("epoch:%d, train_acc:%.4f, acc:%.4f, av_roc:%.4f, softmax_roc:%.4f, os*:%.4f, unk:%.4f, hos:%.4f, best_softmax_roc:%.4f, oscr:%.4f" % (
+                    epoch, train_correct.avg, acc_seen, auc_score_av, auc_score_softmax, os_star, unk_acc, hos, self.best_roc, oscr))
+ 
                 print("\n")
 
             if iter == self.incremental_num-1:
@@ -338,11 +347,44 @@ class USPS:
         auc_score_softmax = compute_roc(known_scores_softmax, unknown_scores_softmax)
         oscr = compute_oscr(np.array(known_scores_softmax), np.array(unknown_scores_softmax), np.array(known_preds), np.array(known_labels))
 
+        # 额外指标：os_star, unk_acc, hos
+        try:
+            # 选择阈值：若 threshold_list 可用则取中位数（50% 百分位），否则用 known_scores_softmax 的中位数
+            if hasattr(self, 'threshold_list') and len(self.threshold_list) > 50:
+                thresh = self.threshold_list[50]
+            else:
+                thresh = float(np.median(np.array(known_scores_softmax))) if len(known_scores_softmax) > 0 else 0.5
+
+            known_scores_soft_arr = np.array(known_scores_softmax)
+            unknown_scores_soft_arr = np.array(unknown_scores_softmax)
+            known_labels_arr = np.array(known_labels)
+            known_preds_arr = np.array(known_preds)
+
+            # seen: 被判为非拒绝且预测正确
+            seen_nonrejected = known_scores_soft_arr >= thresh
+            seen_correct = known_preds_arr == known_labels_arr
+            seen_correct_nonrejected = np.sum(seen_nonrejected & seen_correct)
+            seen_total = len(known_labels_arr)
+
+            # unseen: 被正确拒绝（score < thresh）
+            unseen_rejected = unknown_scores_soft_arr < thresh
+            unseen_total = len(unknown_scores_soft_arr)
+            unk_acc = float(np.sum(unseen_rejected)) / unseen_total if unseen_total > 0 else float('nan')
+
+            # OS*：考虑拒绝后的整体正确率 (seen_correct_nonrejected + unseen_rejected) / 总样本数
+            os_star = float(seen_correct_nonrejected + np.sum(unseen_rejected)) / float(seen_total + unseen_total) if (seen_total + unseen_total) > 0 else float('nan')
+
+            # HOS：Seen 与 Unseen 的调和平均
+            seen_acc_reject = float(seen_correct_nonrejected) / seen_total if seen_total > 0 else float('nan')
+            if seen_acc_reject + unk_acc > 0:
+                hos = 2 * seen_acc_reject * unk_acc / (seen_acc_reject + unk_acc)
+            else:
+                hos = float('nan')
+        except Exception:
+            os_star, unk_acc, hos = float('nan'), float('nan'), float('nan')
 
 
-        return test_correct.avg, auc_score_av, auc_score_softmax, oscr,
-
-
+        return test_correct.avg, auc_score_av, auc_score_softmax, oscr, os_star, unk_acc, hos
 
 
 
