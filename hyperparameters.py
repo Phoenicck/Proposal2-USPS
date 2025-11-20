@@ -62,11 +62,11 @@ def set_hyperparameters(opt):
 
         opt.adversarial_training_batchsize = 32
         opt.initialization_training_epoch = 10
-        opt.adversarial_training_epoch = 20
+        opt.adversarial_training_epoch = 10
         opt.epoch_prototype = 100
         opt.milestone_prototype = [50, 70, 90]
         opt.lr_prototype = 10
-        opt.incremental_num = 4
+        opt.incremental_num = 5
         opt.prototype_per_incremental = 10
         opt.samples_per_prototype = 40
 

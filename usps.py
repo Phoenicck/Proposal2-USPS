@@ -200,8 +200,9 @@ class USPS:
 
             self.prototype_num = self.prototype_num + self.prototype_per_incremental
 
-    def prototype_loss(self):
 
+
+    def prototype_loss(self):
         minmargin_loss = 0
         maxmargin_loss = 0
         diversity_loss = 0
@@ -237,6 +238,24 @@ class USPS:
         loss = maxmargin_loss+minmargin_loss+diversity_loss*self.diversity_weight
 
         return loss
+
+    def save_generated_unknown_samples(self, save_path="./backbone/results/generated_unknown_samples.pth"):
+        """
+        保存生成的伪未知样本到指定路径。
+        :param save_path: 保存路径，默认为 "./backbone/results/generated_unknown_samples.pth"
+        """
+        # 确保生成的伪未知样本已经存在
+        if self.syn_feature_all is None or self.syn_label_all is None:
+            print("No generated unknown samples to save.")
+            return
+
+        # 保存伪未知样本
+        save_data = {
+            "features": self.syn_feature_all,
+            "labels": self.syn_label_all
+        }
+        torch.save(save_data, save_path)
+        print(f"Generated unknown samples saved to {save_path}.")
 
     def generate_anti_feature(self):
 
@@ -279,6 +298,11 @@ class USPS:
         self.data.train_feature = self.data.train_feature.cuda()
         self.data.train_label = self.data.train_label.cuda()
 
+        # 保存生成的伪未知样本
+        self.syn_feature_all = syn_feature_all
+        self.syn_label_all = syn_label_all
+        self.save_generated_unknown_samples()
+
     def val(self, iter):
 
         known_scores_av = []
@@ -287,6 +311,11 @@ class USPS:
         known_preds = []
         unknown_preds = []
         test_correct = AverageMeter()
+        # 查看testdataloader中的大小
+        print(f"Test dataloader size: {len(self.testdataloader.dataset)}")
+        # 查看opendataloader中的大小
+        print(f"Open dataloader size: {len(self.opendataloader.dataset)}")
+        
 
         for batch_idx, samples in enumerate(self.testdataloader):
 
@@ -362,17 +391,19 @@ class USPS:
 
             # seen: 被判为非拒绝且预测正确
             seen_nonrejected = known_scores_soft_arr >= thresh
-            seen_correct = known_preds_arr == known_labels_arr
-            seen_correct_nonrejected = np.sum(seen_nonrejected & seen_correct)
+            seen_correct = (known_preds_arr == known_labels_arr) & seen_nonrejected
+            seen_correct_nonrejected = np.sum(seen_correct)
             seen_total = len(known_labels_arr)
 
             # unseen: 被正确拒绝（score < thresh）
             unseen_rejected = unknown_scores_soft_arr < thresh
             unseen_total = len(unknown_scores_soft_arr)
+
+            # 修改后的 unk 计算：在所有未知类中，能被正确识别为未知类的准确率
             unk_acc = float(np.sum(unseen_rejected)) / unseen_total if unseen_total > 0 else float('nan')
 
-            # OS*：考虑拒绝后的整体正确率 (seen_correct_nonrejected + unseen_rejected) / 总样本数
-            os_star = float(seen_correct_nonrejected + np.sum(unseen_rejected)) / float(seen_total + unseen_total) if (seen_total + unseen_total) > 0 else float('nan')
+            # 修改后的 os* 计算：在所有已知类别中，能被正确分为已知类且类别正确的比例
+            os_star = float(seen_correct_nonrejected) / float(seen_total) if seen_total > 0 else float('nan')
 
             # HOS：Seen 与 Unseen 的调和平均
             seen_acc_reject = float(seen_correct_nonrejected) / seen_total if seen_total > 0 else float('nan')
